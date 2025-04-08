@@ -1,0 +1,571 @@
+//fix 2 players, its not that hard bro.
+//player1
+ct SF[4] pvelx_table = SF[4](0, 0.1, 0, -0.1)
+ct SF[4] pvely_table = SF[4](0.1, 0, -0.1, 0)
+
+//                          (downdown, downright, downup, downleft,
+//                          rightdown, rightright, rightup, rightleft,
+//                          updown, upright, upup, upleft,
+//                          leftdown, leftright, leftup, leftleft)
+ct U[16] ptile_table = U[16](12, 16, 12, 17, 
+                             15, 7, 17, 7, 
+                             12, 14, 12, 15, 
+                             14, 7, 16, 7)
+
+
+vars /serp_vars 
+    //Player 1
+    UF px1 = 1
+    UF py1 = 10
+    UF opx1 = 1
+    UF opy1 = 10
+    U pdir1 = 1
+    U opdir1 = 1
+    U pheadt1 = 4
+    U pbodyt1 = 7
+    U player1nexthead = 0
+    U player1alive = true
+
+    //Player 2
+    UF px2 = 1
+    UF py2 = 10
+    UF opx2 = 1
+    UF opy2 = 10
+    U pdir2 = 1
+    U opdir2 = 1
+    U pheadt2 = 4
+    U pbodyt2 = 3
+    U player2nexthead = 0
+    U player2alive = true
+
+    //Player 3
+    UF px3 = 1
+    UF py3 = 10
+    UF opx3 = 1
+    UF opy3 = 10
+    U pdir3 = 1
+    U opdir3 = 1
+    U pheadt3 = 4
+    U pbodyt3 = 3
+    U player3nexthead = 0
+    U player3alive = true
+
+    //Player 4
+    UF px4 = 1
+    UF py4 = 10
+    UF opx4 = 1
+    UF opy4 = 10
+    U pdir4 = 1
+    U opdir4 = 1
+    U pheadt4 = 4
+    U pbodyt4 = 3
+    U player4nexthead = 0
+    U player4alive = true
+
+//common
+    Bool should_draw = false
+    U wait_counter = 0
+    Bool wait_for_drawing = true
+//scores
+    U scorep1 = 0
+    U scorep2 = 0
+    U scorep3 = 0
+    U scorep4 = 0
+
+
+data /serp_data
+    [] game_back_nt
+        file(raw, "game_background.nam")
+    [] title_back_nt
+        file(raw, "akta_kurvan.nam")
+    [] win_back_nt
+        file(raw, "akta_kurvan_win.nam")
+ct U [25] king_palette = file(raw, "akta_kurvan.pal") : +palette_25
+
+fn load_nametable(CCC/serp_data nametable)
+    ppu_reset_addr($2000)
+    for UU i = 0; i < 960; i += 1
+        {PPUDATA}(nametable{i})
+    for UU i = 0; i < 64; i += 1
+        {PPUDATA}(nametable{i+960})
+
+fn init_game_vars()
+
+    //Player 1
+    px1 = 2
+    py1 = 10
+    opx1 = 1
+    opy1 = 10
+    
+    pdir1 = 1
+    opdir1 = 1
+    
+    pheadt1 = 8
+    pbodyt1 = 7
+
+    //Player2
+    px2 = 2
+    py2 = 13
+    opx2 = 1
+    opy2 = 13
+    
+    pdir2 = 1
+    opdir2 = 1
+    
+    pheadt2 = 8
+    pbodyt2 = 7
+
+    //Player3
+    px3 = 2
+    py3 = 16
+    opx3 = 1
+    opy3 = 16
+    
+    pdir3 = 1
+    opdir3 = 1
+    
+    pheadt3 = 8
+    pbodyt3 = 7
+
+    //Player4
+    px4 = 2
+    py4 = 19
+    opx4 = 1
+    opy4 = 19
+    
+    pdir4 = 1
+    opdir4 = 1
+    
+    pheadt4 = 8
+    pbodyt4 = 7
+
+    should_draw = false
+    wait_counter = 0
+    wait_for_drawing = true
+    //Scores
+    player1alive = true
+    player2alive = true
+    player3alive = true
+    player4alive = true
+    player1nexthead = 0
+    player2nexthead = 0
+    player3nexthead = 0
+    player4nexthead = 0
+
+nmi main_nmi()
+    //update oam and poll controller presses
+    ppu_upload_oam_poll_pads(0)
+
+    //turn rendering on
+    {PPUMASK}(PPUMASK_ON | PPUMASK_NO_CLIP)
+
+    //update_length()
+    update_bkg()
+    check_death()
+    //reset scroll
+    ppu_reset_scroll(0, 0)
+
+    puf.process(PUF_DEFAULT)
+
+mode game()
+: nmi main_nmi
+    
+    // turn NMI off
+    {PPUCTRL}(0)
+    //turn rendering off
+    {PPUMASK}(0)
+
+    puf.play_track(puf_track_game)
+
+    // load the level
+    load_nametable(@game_back_nt)
+
+    init_game_vars()
+
+    // have NMI on every frame
+    {PPUCTRL}(PPUCTRL_NMI_ON)
+
+    while true
+        update_pads()
+        move_player()
+        wait_for_draw()
+        restart_round()
+        check_win()
+        nmi
+        update_sprites()
+
+nmi win_nmi()
+    //update oam and poll controller presses
+    ppu_upload_oam_poll_pads(0)
+
+    //Enable rendering
+    {PPUMASK}(PPUMASK_ON | PPUMASK_NO_CLIP)
+    
+    puf.process(PUF_DEFAULT)
+
+mode win()
+: nmi win_nmi
+    //Disable NMI
+    {PPUCTRL}(0)
+    //Turn off rendering
+    {PPUMASK}(0)
+    //Turn of nmt
+    load_nametable(@win_back_nt)
+    //Enable NMI
+    {PPUCTRL}(PPUCTRL_NMI_ON)
+
+    while true
+        update_pads()
+        pads_menu()
+        nmi
+
+
+fn wait_for_draw()
+    if wait_for_drawing 
+        wait_counter +=1
+        if wait_counter > 250
+            should_draw = true
+            wait_for_drawing = false
+            wait_counter = 0
+
+
+fn check_win()
+    if scorep1 > 40 || scorep2 > 40 || scorep3 > 40 || scorep4 > 40
+        goto mode win()
+        : preserves
+    
+fn check_death()
+    // Check if the tile is occupied, if it is u die
+    if (opx1.a != px1.a || opy1.a != py1.a) && player1alive
+        fence
+        ppu_set_addr($2000+(UU(py1.a)<<5)+UU(px1.a))
+        player1nexthead = {PPUDATA}()
+        player1nexthead = {PPUDATA}()
+        fence
+        if player1nexthead <= 17 && player1nexthead >= 4  
+            player1alive = false
+            if player2alive
+                scorep2+=1
+            if player3alive
+                scorep3+=1
+            if player4alive
+                scorep4+=1
+    if (opx2.a != px2.a || opy2.a != py2.a) && player2alive
+        fence
+        ppu_set_addr($2000+(UU(py2.a)<<5)+UU(px2.a))
+        player2nexthead = {PPUDATA}()
+        player2nexthead = {PPUDATA}()
+        fence
+        if player2nexthead <= 17 && player2nexthead >= 4  
+            player2alive = false
+            if player1alive
+                scorep1+=1
+            if player3alive
+                scorep3+=1
+            if player4alive
+                scorep4+=1
+    if (opx3.a != px3.a || opy3.a != py3.a) && player3alive
+        fence
+        ppu_set_addr($2000+(UU(py3.a)<<5)+UU(px3.a))
+        player3nexthead = {PPUDATA}()
+        player3nexthead = {PPUDATA}()
+        fence
+        if player3nexthead <= 17 && player3nexthead >= 4  
+            player3alive = false
+            if player1alive
+                scorep1+=1
+            if player2alive
+                scorep2+=1
+            if player4alive
+                scorep4+=1
+    if (opx4.a != px4.a || opy4.a != py4.a) && player4alive
+        fence
+        ppu_set_addr($2000+(UU(py4.a)<<5)+UU(px4.a))
+        player4nexthead = {PPUDATA}()
+        player4nexthead = {PPUDATA}()
+        fence
+        if player4nexthead <= 17 && player4nexthead >= 4  
+            player4alive = false
+            if player1alive
+                scorep1+=1
+            if player2alive
+                scorep2+=1
+            if player3alive
+                scorep3+=1
+
+
+fn update_sprites()
+    if (opx1.a != px1.a || opy1.a != py1.a)
+        // HEAD
+        push_oam(0,px1.a<<3,(py1.a<<3)-1,pheadt1,1)
+
+    if (opx2.a != px2.a || opy2.a != py2.a)
+        // HEAD
+        push_oam(4,px2.a<<3,(py2.a<<3)-1,pheadt2,2)
+
+    if (opx3.a != px3.a || opy3.a != py3.a)
+        // HEAD
+        push_oam(8,px3.a<<3,(py3.a<<3)-1,pheadt3,3)
+
+    if opx4.a != px4.a || opy4.a != py4.a
+        // HEAD
+        push_oam(12,px4.a<<3,(py4.a<<3)-1,pheadt4,4)
+
+
+    //Draw score
+    push_oam(16,40,24,u_to_dd(scorep1)[0]+$30,1)
+    push_oam(20,32,24,u_to_dd(scorep1)[1]+$30,1)
+
+    push_oam(24,64,24,u_to_dd(scorep2)[0]+$30,2)
+    push_oam(28,56,24,u_to_dd(scorep2)[1]+$30,2)
+
+    push_oam(32,88,24,u_to_dd(scorep3)[0]+$30,3)
+    push_oam(36,80,24,u_to_dd(scorep3)[1]+$30,3)
+
+    push_oam(40,112,24,u_to_dd(scorep4)[0]+$30,4)
+    push_oam(44,104,24,u_to_dd(scorep4)[1]+$30,4)
+
+fn restart_round()
+    if !player1alive && !player2alive && !player3alive && !player4alive
+
+        //Disable NMI
+        {PPUCTRL}(0)
+        //turn off rendering
+        {PPUMASK}(0)
+
+        // Load nmt
+        load_nametable(@game_back_nt)
+
+        //Load game variables.
+        init_game_vars()
+
+        //Enable NMI
+        {PPUCTRL}(PPUCTRL_NMI_ON)
+
+fn update_bkg()
+
+    //draw name of game
+    ppu_set_addr($2070)
+    {PPUDATA}($41)//A
+    {PPUDATA}($4B)//K
+    {PPUDATA}($54)//T
+    {PPUDATA}($41)//A
+    {PPUDATA}($90)//
+    {PPUDATA}($4B)//K
+    {PPUDATA}($55)//U
+    {PPUDATA}($52)//R
+    {PPUDATA}($56)//V
+    {PPUDATA}($41)//A
+    {PPUDATA}($4E)//N
+    //Draw all players, draw a whole on random so that someone can sneak by.
+    if should_draw
+        if (opx1.a != px1.a || opy1.a != py1.a)
+            U random = rand()
+            if(random < 230)
+                ppu_set_addr($2000+(UU(opy1.a)<<5)+UU(opx1.a))
+                {PPUDATA}(ptile_table[pbodyt1])
+
+        if opx2.a != px2.a || opy2.a != py2.a
+            U random = rand()
+            if(random < 230)
+                ppu_set_addr($2000+(UU(opy2.a)<<5)+UU(opx2.a))
+                {PPUDATA}(ptile_table[pbodyt2])
+
+        if opx3.a != px3.a || opy3.a != py3.a
+            U random = rand()
+            if(random < 230)
+                ppu_set_addr($2000+(UU(opy3.a)<<5)+UU(opx3.a))
+                {PPUDATA}(ptile_table[pbodyt3])
+
+
+        if opx4.a != px4.a || opy4.a != py4.a
+            U random = rand()
+            if(random < 230)
+                ppu_set_addr($2000+(UU(opy4.a)<<5)+UU(opx4.a))
+                {PPUDATA}(ptile_table[pbodyt4])
+    
+
+fn move_player()
+
+    if (px1.a != opx1.a || py1.a != opy1.a) && player1alive
+        opdir1 = pdir1
+
+    if (px2.a != opx2.a || py2.a != opy2.a) && player2alive
+        opdir2 = pdir2
+
+    if (px3.a != opx3.a || py3.a != opy3.a) && player3alive
+        opdir3 = pdir3
+
+    if (px4.a != opx4.a || py4.a != opy4.a) && player4alive
+        opdir4 = pdir4
+
+    //move snake head horizontally
+    if player1alive
+        if pads[0].held & BUTTON_DPAD == BUTTON_LEFT && (pdir1 == 0 || pdir1 == 2)
+            pdir1 = 3
+            pheadt1 = 6
+        else if pads[0].held & BUTTON_DPAD == BUTTON_RIGHT && (pdir1 == 0 || pdir1 == 2)
+            pdir1 = 1
+            pheadt1 = 8
+        //move snake head vertically
+        else if pads[0].held & BUTTON_DPAD == BUTTON_UP && (pdir1 == 1 || pdir1 == 3)
+            pdir1 = 2
+            pheadt1 = 13
+        else if pads[0].held & BUTTON_DPAD == BUTTON_DOWN && (pdir1 == 1 || pdir1 == 3)
+            pdir1 = 0
+            pheadt1 = 11
+
+    //Player 2
+    if player2alive
+        if pads[1].held & BUTTON_DPAD == BUTTON_LEFT && (pdir2 == 0 || pdir2 == 2)
+            pdir2 = 3
+            pheadt2 = 6
+        else if pads[1].held & BUTTON_DPAD == BUTTON_RIGHT && (pdir2 == 0 || pdir2 == 2)
+            pdir2 = 1
+            pheadt2 = 8
+        //move snake head vertically
+        else if pads[1].held & BUTTON_DPAD == BUTTON_UP && (pdir2 == 1 || pdir2 == 3)
+            pdir2 = 2
+            pheadt2 = 13
+        else if pads[1].held & BUTTON_DPAD == BUTTON_DOWN && (pdir2 == 1 || pdir2 == 3)
+            pdir2 = 0
+            pheadt2 = 11
+
+
+    //Player 3
+    if player3alive
+        if pads[2].held & BUTTON_DPAD == BUTTON_LEFT && (pdir3 == 0 || pdir3 == 2)
+            pdir3 = 3
+            pheadt3 = 6
+        else if pads[2].held & BUTTON_DPAD == BUTTON_RIGHT && (pdir3 == 0 || pdir3 == 2)
+            pdir3 = 1
+            pheadt3 = 8
+        //move snake head vertically
+        else if pads[2].held & BUTTON_DPAD == BUTTON_UP && (pdir3 == 1 || pdir3 == 3)
+            pdir3 = 2
+            pheadt3 = 13
+        else if pads[2].held & BUTTON_DPAD == BUTTON_DOWN && (pdir3 == 1 || pdir3 == 3)
+            pdir3 = 0
+            pheadt3 = 11
+
+    //Player 4
+    if player4alive
+        if pads[3].held & BUTTON_DPAD == BUTTON_LEFT && (pdir4 == 0 || pdir4 == 2)
+            pdir4 = 3
+            pheadt4 = 6
+        else if pads[3].held & BUTTON_DPAD == BUTTON_RIGHT && (pdir4 == 0 || pdir4 == 2)
+            pdir4 = 1
+            pheadt4 = 8
+        //move snake head vertically
+        else if pads[3].held & BUTTON_DPAD == BUTTON_UP && (pdir4 == 1 || pdir4 == 3)
+            pdir4 = 2
+            pheadt4 = 13
+        else if pads[3].held & BUTTON_DPAD == BUTTON_DOWN && (pdir4 == 1 || pdir4 == 3)
+            pdir4 = 0
+            pheadt4 = 11
+
+    //automatic body tile table, thx 
+    if player1alive
+        pbodyt1 = (opdir1<<2)+pdir1
+        opx1 = px1
+        opy1 = py1
+        px1 += pvelx_table[pdir1]
+        py1 += pvely_table[pdir1]
+    
+    if player2alive
+        pbodyt2 = (opdir2<<2)+pdir2
+        opx2 = px2
+        opy2 = py2
+        px2 += pvelx_table[pdir2]
+        py2 += pvely_table[pdir2]
+
+    if player3alive
+        pbodyt3 = (opdir3<<2)+pdir3
+        opx3 = px3
+        opy3 = py3
+        px3 += pvelx_table[pdir3]
+        py3 += pvely_table[pdir3]
+
+    if player4alive
+        pbodyt4 = (opdir4<<2)+pdir4
+        opx4 = px4
+        opy4 = py4
+        px4 += pvelx_table[pdir4]
+        py4 += pvely_table[pdir4]
+
+    if py1 < 6
+        py1 = 25
+    else if py1 > 26
+        py1 = 6
+    
+    if px1 < 2
+        px1 = 29
+    else if px1 > 30
+        px1 = 2
+
+    if py2 < 6
+        py2 = 25
+    else if py2 > 26
+        py2 = 6
+    
+    if px2 < 2
+        px2 = 29
+    else if px2 > 30
+        px2 = 2
+
+    if py3 < 6
+        py3 = 25
+    else if py3 > 26
+        py3 = 6
+    
+    if px3 < 2
+        px3 = 29
+    else if px3 > 30
+        px3 = 2
+
+    if py4 < 6
+        py4 = 25
+    else if py4 > 26
+        py4 = 6
+    
+    if px4 < 2
+        px4 = 29
+    else if px4 > 30
+        px4 = 2
+
+mode main()
+: nmi win_nmi
+    //Disable NMI
+    {PPUCTRL}(0)
+    //turn off rendering
+    {PPUMASK}(0)
+
+    // upload palette
+    palette = king_palette
+    ppu_upload_palette()
+
+    load_nametable(@title_back_nt)
+    
+    // lear reminder of oam
+    hide_oam(0)
+    //Enable NMI
+    {PPUCTRL}(PPUCTRL_NMI_ON)
+
+    puf.init(system)
+    puf.play_track(puf_track_title)
+    while true
+        update_pads()
+        pads_menu()
+        nmi
+
+fn pads_menu()
+    if pads[0].held & BUTTON_START
+        goto mode game()
+        : preserves /serp_vars
+
+// Define tileset
+chrrom
+    file(fmt, "tilemap.png")
+
+audio(puf1_music, "music.txt")
+audio(puf1_sfx)
