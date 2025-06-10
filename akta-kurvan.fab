@@ -15,8 +15,10 @@ ct U[16] ptile_table = U[16](12, 16, 12, 17,
                              14, 7, 16, 7)
 
 
+
 vars /serp_vars 
     //Player 1
+    UF palhax = 0
     UF px1 = 1
     UF py1 = 10
     UF opx1 = 1
@@ -167,7 +169,18 @@ nmi main_nmi()
     //reset scroll
     ppu_reset_scroll(0, 0)
 
-    puf.process(PUF_DEFAULT)
+    if(system == SYSTEM_PAL)
+        palhax +=1
+        if(palhax == 5)
+            palhax = 0 
+            puf.process(PUF_DEFAULT)
+            puf.process(PUF_DEFAULT)
+        else
+            puf.process(PUF_DEFAULT)
+    else
+        puf.process(PUF_DEFAULT)
+    
+    
 
 mode game()
 : nmi main_nmi
@@ -203,7 +216,16 @@ nmi win_nmi()
     //Enable rendering
     {PPUMASK}(PPUMASK_ON | PPUMASK_NO_CLIP)
     
-    puf.process(PUF_DEFAULT)
+    if(system == SYSTEM_PAL)
+        palhax +=1
+        if(palhax == 5)
+            palhax = 0 
+            puf.process(PUF_DEFAULT)
+            puf.process(PUF_DEFAULT)
+        else
+            puf.process(PUF_DEFAULT)
+    else
+        puf.process(PUF_DEFAULT)
 
 mode win()
 : nmi win_nmi
