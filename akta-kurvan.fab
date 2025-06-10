@@ -1,7 +1,9 @@
 //fix 2 players, its not that hard bro.
 //player1
-ct SF[4] pvelx_table = SF[4](0, 0.1, 0, -0.1)
-ct SF[4] pvely_table = SF[4](0.1, 0, -0.1, 0)
+ct SF[4] pvelx_table_ntsc = SF[4](0, 0.1, 0, -0.1)
+ct SF[4] pvely_table_ntsc = SF[4](0.1, 0, -0.1, 0)
+ct SF[4] pvelx_table_pal = SF[4](0, 0.12, 0, -0.12)
+ct SF[4] pvely_table_pal = SF[4](0.12, 0, -0.12, 0)
 
 //                          (downdown, downright, downup, downleft,
 //                          rightdown, rightright, rightup, rightleft,
@@ -469,29 +471,46 @@ fn move_player()
         pbodyt1 = (opdir1<<2)+pdir1
         opx1 = px1
         opy1 = py1
-        px1 += pvelx_table[pdir1]
-        py1 += pvely_table[pdir1]
+        if system == SYSTEM_NTSC
+            px1 += pvelx_table_ntsc[pdir1]
+            py1 += pvely_table_ntsc[pdir1]
+        else
+            px1 += pvelx_table_pal[pdir1]
+            py1 += pvely_table_pal[pdir1]
+        
     
     if player2alive
         pbodyt2 = (opdir2<<2)+pdir2
         opx2 = px2
         opy2 = py2
-        px2 += pvelx_table[pdir2]
-        py2 += pvely_table[pdir2]
+        if system == SYSTEM_NTSC
+            px2 += pvelx_table_ntsc[pdir2]
+            py2 += pvely_table_ntsc[pdir2]
+        else
+            px2 += pvelx_table_pal[pdir2]
+            py2 += pvely_table_pal[pdir2]
 
     if player3alive
         pbodyt3 = (opdir3<<2)+pdir3
         opx3 = px3
         opy3 = py3
-        px3 += pvelx_table[pdir3]
-        py3 += pvely_table[pdir3]
+        if system == SYSTEM_NTSC
+            px3 += pvelx_table_ntsc[pdir3]
+            py3 += pvely_table_ntsc[pdir3]
+        else
+            px3 += pvelx_table_pal[pdir3]
+            py3 += pvely_table_pal[pdir3]
 
     if player4alive
         pbodyt4 = (opdir4<<2)+pdir4
         opx4 = px4
         opy4 = py4
-        px4 += pvelx_table[pdir4]
-        py4 += pvely_table[pdir4]
+        if system == SYSTEM_NTSC
+            px4 += pvelx_table_ntsc[pdir4]
+            py4 += pvely_table_ntsc[pdir4]
+        else
+            px4 += pvelx_table_pal[pdir4]
+            py4 += pvely_table_pal[pdir4]
 
     if py1 < 6
         py1 = 25
